@@ -215,7 +215,10 @@ public class HTTPServer: Server {
         }
 
         if let key = head.headers["Sec-WebSocket-Key"].first {
-            headers.add(name: "Sec-WebSocket-Key", value: key)
+            //headers.add(name: "Sec-WebSocket-Key", value: key)
+
+            headers.add(name: "Sec-WebSocket-Accept", value: key)
+
         }
 
         if let _extension = head.headers["Sec-WebSocket-Extensions"].first {
