@@ -14,36 +14,37 @@
  * limitations under the License.
  */
 
-import NIO
-import NIOHTTP1
-import Dispatch
-import NIOSSL
-import SSLService
-import LoggerAPI
-import NIOWebSocket
 import CLinuxHelpers
+import Dispatch
 import Foundation
-import NIOExtras
+import LoggerAPI
+import NIO
 import NIOConcurrencyHelpers
+import NIOExtras
+import NIOHTTP1
+import NIOSSL
+import NIOWebSocket
+import SSLService
 
 #if os(Linux)
-import Glibc
+    import Glibc
 #else
-import Darwin
+    import Darwin
 #endif
 
 // MARK: HTTPServer
+
 /**
-An HTTP server that listens for connections on a socket.
-### Usage Example: ###
-````swift
- //Create a server that listens for connections on a specified socket.
- let server = try HTTPServer.listen(on: 0, delegate: delegate)
- ...
- //Stop the server.
- server.stop()
-````
-*/
+ An HTTP server that listens for connections on a socket.
+ ### Usage Example: ###
+ ````swift
+  //Create a server that listens for connections on a specified socket.
+  let server = try HTTPServer.listen(on: 0, delegate: delegate)
+  ...
+  //Stop the server.
+  server.stop()
+ ````
+ */
 
 #if os(Linux)
     let numberOfCores = Int(linux_sched_getaffinity())
@@ -53,17 +54,16 @@ An HTTP server that listens for connections on a socket.
 #endif
 
 public class HTTPServer: Server {
-
     public typealias ServerType = HTTPServer
 
     /**
-     HTTP `ServerDelegate`.
+      HTTP `ServerDelegate`.
 
-     ### Usage Example: ###
-     ````swift
-     httpServer.delegate = self
-     ````
-    */
+      ### Usage Example: ###
+      ````swift
+      httpServer.delegate = self
+      ````
+     */
     public var delegate: ServerDelegate?
 
     /// The TCP port on which this server listens for new connections. If `nil`, this server does not listen on a TCP socket.
@@ -81,23 +81,23 @@ public class HTTPServer: Server {
     private let syncQ = DispatchQueue(label: "HTTPServer.syncQ")
 
     /**
-     A server state
+      A server state
 
-     ### Usage Example: ###
-     ````swift
-     if(httpSever.state == .unknown) {
-        httpServer.stop()
-     }
-     ````
-    */
+      ### Usage Example: ###
+      ````swift
+      if(httpSever.state == .unknown) {
+         httpServer.stop()
+      }
+      ````
+     */
     public private(set) var state: ServerState {
         get {
-            return self.syncQ.sync {
+            return syncQ.sync {
                 return self._state
             }
         }
         set {
-            self.syncQ.sync {
+            syncQ.sync {
                 self._state = newValue
             }
         }
@@ -106,26 +106,26 @@ public class HTTPServer: Server {
     fileprivate let lifecycleListener = ServerLifecycleListener()
 
     /**
-     Controls the maximum number of requests per Keep-Alive connection.
+      Controls the maximum number of requests per Keep-Alive connection.
 
-     ### Usage Example: ###
-     ````swift
-     httpServer.keepAliveState = .unlimited
-     ````
-    */
+      ### Usage Example: ###
+      ````swift
+      httpServer.keepAliveState = .unlimited
+      ````
+     */
     public var keepAliveState: KeepAliveState = .unlimited
 
     /// The channel used to listen for new connections
     var serverChannel: Channel?
 
     /**
-     Whether or not this server allows port reuse (default: disallowed).
+      Whether or not this server allows port reuse (default: disallowed).
 
-     ### Usage Example: ###
-     ````swift
-     httpServer.allowPortReuse = true
-     ````
-    */
+      ### Usage Example: ###
+      ````swift
+      httpServer.allowPortReuse = true
+      ````
+     */
     public var allowPortReuse = false
 
     /// Maximum number of pending connections
@@ -148,9 +148,9 @@ public class HTTPServer: Server {
     ///         ```
     ///
     public var eventLoopGroup: EventLoopGroup {
-        if let value = self._eventLoopGroup { return value }
+        if let value = _eventLoopGroup { return value }
         let value = globalELG
-        self._eventLoopGroup = value
+        _eventLoopGroup = value
         return value
     }
 
@@ -159,35 +159,35 @@ public class HTTPServer: Server {
     /// server configuration
     public var options: ServerOptions = ServerOptions()
 
-    //counter for no of connections
+    // counter for no of connections
     var connectionCount = NIOAtomic.makeAtomic(value: 0)
 
     /**
-     Creates an HTTP server object.
+      Creates an HTTP server object.
 
-     ### Usage Example: ###
-     ````swift
-     let config =HTTPServerConfiguration(requestSize: 1000, coonectionLimit: 100)
-     let server = HTTPServer(serverconfig: config)
-     server.listen(on: 8080)
-     ````
-    */
+      ### Usage Example: ###
+      ````swift
+      let config =HTTPServerConfiguration(requestSize: 1000, coonectionLimit: 100)
+      let server = HTTPServer(serverconfig: config)
+      server.listen(on: 8080)
+      ````
+     */
     public init(options: ServerOptions = ServerOptions()) {
         self.options = options
     }
 
     /**
-     SSL cert configuration for handling client requests.
+      SSL cert configuration for handling client requests.
 
-     ### Usage Example: ###
-     ````swift
-     httpServer.sslConfig = sslConfiguration
-     ````
-    */
+      ### Usage Example: ###
+      ````swift
+      httpServer.sslConfig = sslConfiguration
+      ````
+     */
     public var sslConfig: SSLService.Configuration? {
         didSet {
             if let sslConfig = sslConfig {
-                //convert to TLSConfiguration
+                // convert to TLSConfiguration
                 let config = SSLConfiguration(sslConfig: sslConfig)
                 tlsConfig = config.tlsServerConfig()
             }
@@ -205,14 +205,16 @@ public class HTTPServer: Server {
 
     /// Determines if the request should be upgraded and adds additional upgrade headers to the request
     private func shouldUpgradeToWebSocket(channel: Channel, webSocketHandlerFactory: ProtocolHandlerFactory, head: HTTPRequestHead) -> EventLoopFuture<HTTPHeaders?> {
-        self.latestWebSocketURI = String(head.uri.split(separator: "?")[0])
-        guard webSocketHandlerFactory.isServiceRegistered(at: self.latestWebSocketURI) else { return channel.eventLoop.makeSucceededFuture(nil) }
+        latestWebSocketURI = String(head.uri.split(separator: "?")[0])
+        guard webSocketHandlerFactory.isServiceRegistered(at: latestWebSocketURI) else { return channel.eventLoop.makeSucceededFuture(nil) }
         var headers = HTTPHeaders()
         if let wsProtocol = head.headers["Sec-WebSocket-Protocol"].first {
             headers.add(name: "Sec-WebSocket-Protocol", value: wsProtocol)
         }
-        if let key =  head.headers["Sec-WebSocket-Key"].first {
-            headers.add(name: "Sec-WebSocket-Key", value: key)
+        
+        if let key = head.headers["Sec-WebSocket-Key"].first {
+            //headers.add(name: "Sec-WebSocket-Key", value: key)
+            
         }
         if let _extension = head.headers["Sec-WebSocket-Extensions"].first {
             let responseExtensions = webSocketHandlerFactory.negotiate(header: _extension)
@@ -229,17 +231,17 @@ public class HTTPServer: Server {
         return channel.eventLoop.submit {
             let request = HTTPServerRequest(channel: channel, requestHead: request, enableSSL: false)
             return webSocketHandlerFactory.handler(for: request)
-            }.flatMap { (handler: ChannelHandler) -> EventLoopFuture<Void> in
-                return channel.pipeline.addHandler(handler).flatMap {
-                    if let _extensions = request.headers["Sec-WebSocket-Extensions"].first {
-                        let handlers = webSocketHandlerFactory.extensionHandlers(header: _extensions)
-                        return channel.pipeline.addHandlers(handlers, position: .before(handler))
-                    } else {
-                        // No extensions. We must return success.
-                        return channel.eventLoop.makeSucceededFuture(())
-                    }
+        }.flatMap { (handler: ChannelHandler) -> EventLoopFuture<Void> in
+            channel.pipeline.addHandler(handler).flatMap {
+                if let _extensions = request.headers["Sec-WebSocket-Extensions"].first {
+                    let handlers = webSocketHandlerFactory.extensionHandlers(header: _extensions)
+                    return channel.pipeline.addHandlers(handlers, position: .before(handler))
+                } else {
+                    // No extensions. We must return success.
+                    return channel.eventLoop.makeSucceededFuture(())
                 }
             }
+        }
     }
 
     private typealias ShouldUpgradeFunction = (Channel, HTTPRequestHead) -> EventLoopFuture<HTTPHeaders?>
@@ -247,18 +249,18 @@ public class HTTPServer: Server {
 
     private func generateShouldUpgrade(_ webSocketHandlerFactory: ProtocolHandlerFactory) -> ShouldUpgradeFunction {
         return { (channel: Channel, head: HTTPRequestHead) in
-            return self.shouldUpgradeToWebSocket(channel: channel, webSocketHandlerFactory: webSocketHandlerFactory, head: head)
+            self.shouldUpgradeToWebSocket(channel: channel, webSocketHandlerFactory: webSocketHandlerFactory, head: head)
         }
     }
 
     private func generateUpgradePipelineHandler(_ webSocketHandlerFactory: ProtocolHandlerFactory) -> UpgradePipelineHandlerFunction {
         return { (channel: Channel, request: HTTPRequestHead) in
-            return self.upgradeHandler(channel: channel, webSocketHandlerFactory: webSocketHandlerFactory, request: request)
+            self.upgradeHandler(channel: channel, webSocketHandlerFactory: webSocketHandlerFactory, request: request)
         }
     }
 
     private func createNIOSSLServerHandler() -> NIOSSLServerHandler? {
-        if let sslContext = self.sslContext {
+        if let sslContext = sslContext {
             return NIOSSLServerHandler(context: sslContext)
         }
         return nil
@@ -323,10 +325,9 @@ public class HTTPServer: Server {
     }
 
     private func listen(_ socket: SocketType) throws {
-
         if let tlsConfig = tlsConfig {
             do {
-                self.sslContext = try NIOSSLContext(configuration: tlsConfig)
+                sslContext = try NIOSSLContext(configuration: tlsConfig)
             } catch let error {
                 Log.error("Failed to create SSLContext. Error: \(error)")
             }
@@ -334,7 +335,7 @@ public class HTTPServer: Server {
 
         var upgraders: [HTTPServerProtocolUpgrader] = []
         if let webSocketHandlerFactory = ConnectionUpgrader.getProtocolHandlerFactory(for: "websocket") {
-            ///TODO: Should `maxFrameSize` be configurable?
+            // TODO: Should `maxFrameSize` be configurable?
             let upgrader = KituraWebSocketUpgrader(maxFrameSize: 1 << 24,
                                                    automaticErrorHandling: false,
                                                    shouldUpgrade: generateShouldUpgrade(webSocketHandlerFactory),
@@ -343,7 +344,7 @@ public class HTTPServer: Server {
         }
 
         let bootstrap = ServerBootstrap(group: eventLoopGroup)
-            .serverChannelOption(ChannelOptions.backlog, value: .init(self.maxPendingConnections))
+            .serverChannelOption(ChannelOptions.backlog, value: .init(maxPendingConnections))
             .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
             .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEPORT), value: allowPortReuse ? 1 : 0)
             .serverChannelInitializer { channel in
@@ -353,7 +354,7 @@ public class HTTPServer: Server {
             }
             .childChannelInitializer { channel in
                 let httpHandler = HTTPRequestHandler(for: self)
-                let config: NIOHTTPServerUpgradeConfiguration = (upgraders: upgraders, completionHandler: {_ in 
+                let config: NIOHTTPServerUpgradeConfiguration = (upgraders: upgraders, completionHandler: { _ in
                     _ = channel.pipeline.removeHandler(httpHandler)
                 })
                 return channel.pipeline.configureHTTPServerPipeline(withServerUpgrade: config, withErrorHandling: true).flatMap {
@@ -367,37 +368,37 @@ public class HTTPServer: Server {
         let listenerDescription: String
         do {
             switch socket {
-            case SocketType.tcp(let port, let address):
+            case let SocketType.tcp(port, address):
                 serverChannel = try bootstrap.bind(host: address ?? "0.0.0.0", port: port).wait()
                 self.port = serverChannel?.localAddress?.port.map { Int($0) }
                 listenerDescription = "port \(self.port ?? port)"
-            case SocketType.unix(let unixDomainSocketPath):
+            case let SocketType.unix(unixDomainSocketPath):
                 // Ensure the path doesn't exist...
                 #if os(Linux)
-                _ = Glibc.unlink(unixDomainSocketPath)
+                    _ = Glibc.unlink(unixDomainSocketPath)
                 #else
-                _ = Darwin.unlink(unixDomainSocketPath)
+                    _ = Darwin.unlink(unixDomainSocketPath)
                 #endif
                 serverChannel = try bootstrap.bind(unixDomainSocketPath: unixDomainSocketPath).wait()
                 self.unixDomainSocketPath = unixDomainSocketPath
                 listenerDescription = "path \(unixDomainSocketPath)"
             }
-            self.state = .started
-            self.lifecycleListener.performStartCallbacks()
+            state = .started
+            lifecycleListener.performStartCallbacks()
         } catch let error {
             self.state = .failed
             self.lifecycleListener.performFailCallbacks(with: error)
             switch socket {
-            case .tcp(let port, let address):
+            case let .tcp(port, address):
                 Log.error("Error trying to bind to \(address ?? "")\(port): \(error)")
-            case .unix(let socketPath):
+            case let .unix(socketPath):
                 Log.error("Error trying to bind to \(socketPath): \(error)")
             }
             throw error
         }
 
         Log.info("Listening on \(listenerDescription)")
-        Log.verbose("Options for \(listenerDescription): maxPendingConnections: \(maxPendingConnections), allowPortReuse: \(self.allowPortReuse)")
+        Log.verbose("Options for \(listenerDescription): maxPendingConnections: \(maxPendingConnections), allowPortReuse: \(allowPortReuse)")
 
         let queuedBlock = DispatchWorkItem(block: {
             guard let serverChannel = self.serverChannel else { return }
@@ -413,20 +414,20 @@ public class HTTPServer: Server {
     }
 
     /**
-     Static method to create a new HTTP server and have it listen for connections.
+      Static method to create a new HTTP server and have it listen for connections.
 
-     ### Usage Example: ###
-     ````swift
-     let server = HTTPServer.listen(on: 8080, node: "localhost", delegate: self)
-     ````
+      ### Usage Example: ###
+      ````swift
+      let server = HTTPServer.listen(on: 8080, node: "localhost", delegate: self)
+      ````
 
-     - Parameter on: Port number for accepting new connections.
-     - Parameter address: The address of the network interface to listen on. Defaults to nil, which means this server
-                 will listen on all interfaces.
-     - Parameter delegate: The delegate handler for HTTP connections.
+      - Parameter on: Port number for accepting new connections.
+      - Parameter address: The address of the network interface to listen on. Defaults to nil, which means this server
+                  will listen on all interfaces.
+      - Parameter delegate: The delegate handler for HTTP connections.
 
-     - Returns: A new instance of a `HTTPServer`.
-    */
+      - Returns: A new instance of a `HTTPServer`.
+     */
     public static func listen(on port: Int, address: String? = nil, delegate: ServerDelegate?) throws -> ServerType {
         let server = HTTP.createServer()
         server.delegate = delegate
@@ -455,15 +456,15 @@ public class HTTPServer: Server {
     }
 
     /**
-     Listen for connections on a socket.
+      Listen for connections on a socket.
 
-     ### Usage Example: ###
-     ````swift
-     try server.listen(on: 8080, errorHandler: errorHandler)
-     ````
-     - Parameter port: port number for new connections (eg. 8080)
-     - Parameter errorHandler: optional callback for error handling
-    */
+      ### Usage Example: ###
+      ````swift
+      try server.listen(on: 8080, errorHandler: errorHandler)
+      ````
+      - Parameter port: port number for new connections (eg. 8080)
+      - Parameter errorHandler: optional callback for error handling
+     */
     @available(*, deprecated, message: "use 'listen(on:) throws' with 'server.failed(callback:)' instead")
     public func listen(port: Int, errorHandler: ((Swift.Error) -> Void)?) {
         do {
@@ -478,18 +479,18 @@ public class HTTPServer: Server {
     }
 
     /**
-     Static method to create a new HTTPServer and have it listen for connections.
+      Static method to create a new HTTPServer and have it listen for connections.
 
-     ### Usage Example: ###
-     ````swift
-     let server = HTTPServer(port: 8080, delegate: self, errorHandler: errorHandler)
-     ````
-     - Parameter port: port number for new connections (eg. 8080)
-     - Parameter delegate: The delegate handler for HTTP connections.
-     - Parameter errorHandler: optional callback for error handling
+      ### Usage Example: ###
+      ````swift
+      let server = HTTPServer(port: 8080, delegate: self, errorHandler: errorHandler)
+      ````
+      - Parameter port: port number for new connections (eg. 8080)
+      - Parameter delegate: The delegate handler for HTTP connections.
+      - Parameter errorHandler: optional callback for error handling
 
-     - Returns: A new `HTTPServer` instance.
-    */
+      - Returns: A new `HTTPServer` instance.
+     */
     @available(*, deprecated, message: "use 'listen(on:delegate:) throws' with 'server.failed(callback:)' instead")
     public static func listen(port: Int, delegate: ServerDelegate, errorHandler: ((Swift.Error) -> Void)?) -> ServerType {
         let server = HTTP.createServer()
@@ -499,13 +500,13 @@ public class HTTPServer: Server {
     }
 
     /**
-     Stop listening for new connections.
+      Stop listening for new connections.
 
-     ### Usage Example: ###
-     ````swift
-     server.stop()
-     ````
-    */
+      ### Usage Example: ###
+      ````swift
+      server.stop()
+      ````
+     */
     public func stop() {
         // Close the listening channel
         guard let serverChannel = serverChannel else { return }
@@ -516,7 +517,7 @@ public class HTTPServer: Server {
         }
 
         // Now close all the open channels
-        guard let quiescingHelper = self.quiescingHelper else { return }
+        guard let quiescingHelper = quiescingHelper else { return }
         let fullShutdownPromise: EventLoopPromise<Void> = eventLoopGroup.next().makePromise()
         quiescingHelper.initiateShutdown(promise: fullShutdownPromise)
         fullShutdownPromise.futureResult.whenComplete { _ in
@@ -525,69 +526,70 @@ public class HTTPServer: Server {
     }
 
     /**
-     Add a new listener for a server being started.
+      Add a new listener for a server being started.
 
-     ### Usage Example: ###
-     ````swift
-     server.started(callback: callBack)
-     ````
-     - Parameter callback: The listener callback that will run after a successfull start-up.
+      ### Usage Example: ###
+      ````swift
+      server.started(callback: callBack)
+      ````
+      - Parameter callback: The listener callback that will run after a successfull start-up.
 
-     - Returns: A `HTTPServer` instance.
-    */
+      - Returns: A `HTTPServer` instance.
+     */
     @discardableResult
     public func started(callback: @escaping () -> Void) -> Self {
-        self.lifecycleListener.addStartCallback(perform: self.state == .started, callback)
+        lifecycleListener.addStartCallback(perform: state == .started, callback)
         return self
     }
 
     /**
-     Add a new listener for a server being stopped.
+      Add a new listener for a server being stopped.
 
-     ### Usage Example: ###
-     ````swift
-     server.stopped(callback: callBack)
-     ````
-     - Parameter callback: The listener callback that will run when the server stops.
+      ### Usage Example: ###
+      ````swift
+      server.stopped(callback: callBack)
+      ````
+      - Parameter callback: The listener callback that will run when the server stops.
 
-     - Returns: A `HTTPServer` instance.
-    */
+      - Returns: A `HTTPServer` instance.
+     */
     @discardableResult
     public func stopped(callback: @escaping () -> Void) -> Self {
-        self.lifecycleListener.addStopCallback(perform: self.state == .stopped, callback)
+        lifecycleListener.addStopCallback(perform: state == .stopped, callback)
         return self
     }
 
     /**
-     Add a new listener for a server throwing an error.
+      Add a new listener for a server throwing an error.
 
-     ### Usage Example: ###
-     ````swift
-     server.started(callback: callBack)
-     ````
-     - Parameter callback: The listener callback that will run when the server throws an error.
+      ### Usage Example: ###
+      ````swift
+      server.started(callback: callBack)
+      ````
+      - Parameter callback: The listener callback that will run when the server throws an error.
 
-     - Returns: A `HTTPServer` instance.
-    */
+      - Returns: A `HTTPServer` instance.
+     */
     @discardableResult
     public func failed(callback: @escaping (Swift.Error) -> Void) -> Self {
-        self.lifecycleListener.addFailCallback(callback)
+        lifecycleListener.addFailCallback(callback)
         return self
     }
+
     /**
-     Add a new listener for when `listenSocket.acceptClientConnection` throws an error.
+      Add a new listener for when `listenSocket.acceptClientConnection` throws an error.
 
-     ### Usage Example: ###
-     ````swift
-     server.clientConnectionFailed(callback: callBack)
-     ````
-     - Parameter callback: The listener callback that will run on server after successfull start-up.
+      ### Usage Example: ###
+      ````swift
+      server.clientConnectionFailed(callback: callBack)
+      ````
+      - Parameter callback: The listener callback that will run on server after successfull start-up.
 
-     - Returns: A `HTTPServer` instance.
-    */
+      - Returns: A `HTTPServer` instance.
+     */
     @discardableResult
     public func clientConnectionFailed(callback: @escaping (Swift.Error) -> Void) -> Self {
-        self.lifecycleListener.addClientConnectionFailCallback(callback)
+        lifecycleListener.addClientConnectionFailCallback(callback)
         return self
     }
 }
@@ -637,7 +639,7 @@ final class KituraWebSocketUpgrader: HTTPServerProtocolUpgrader {
                 shouldUpgrade: @escaping (Channel, HTTPRequestHead) -> EventLoopFuture<HTTPHeaders?>,
                 upgradePipelineHandler: @escaping (Channel, HTTPRequestHead) -> EventLoopFuture<Void>) {
         _wrappedUpgrader = NIOWebSocketServerUpgrader(maxFrameSize: maxFrameSize, automaticErrorHandling: automaticErrorHandling, shouldUpgrade: shouldUpgrade,
-                                             upgradePipelineHandler: upgradePipelineHandler)
+                                                      upgradePipelineHandler: upgradePipelineHandler)
     }
 
     public convenience init(automaticErrorHandling: Bool = true, shouldUpgrade: @escaping (Channel, HTTPRequestHead) -> EventLoopFuture<HTTPHeaders?>,
@@ -647,7 +649,7 @@ final class KituraWebSocketUpgrader: HTTPServerProtocolUpgrader {
     }
 
     public var supportedProtocol: String {
-        return self._wrappedUpgrader.supportedProtocol
+        return _wrappedUpgrader.supportedProtocol
     }
 
     public var requiredUpgradeHeaders: [String] {
@@ -664,7 +666,7 @@ final class KituraWebSocketUpgrader: HTTPServerProtocolUpgrader {
             let keyHeader = upgradeRequest.headers[canonicalForm: "Sec-WebSocket-Key"]
             let versionHeader = upgradeRequest.headers[canonicalForm: "Sec-WebSocket-Version"]
 
-            var error: KituraWebSocketUpgradeError 
+            var error: KituraWebSocketUpgradeError
             if keyHeader.count == 0 {
                 error = KituraWebSocketUpgradeError.noWebSocketKeyHeader
             } else if keyHeader.count > 1 {
@@ -676,11 +678,11 @@ final class KituraWebSocketUpgrader: HTTPServerProtocolUpgrader {
             } else if versionHeader.first! != "13" {
                 error = KituraWebSocketUpgradeError.invalidVersionHeader(String(versionHeader.first!))
             } else {
-                error = KituraWebSocketUpgradeError.unknownUpgradeError 
+                error = KituraWebSocketUpgradeError.unknownUpgradeError
             }
             return channel.eventLoop.makeFailedFuture(error)
-        }.flatMap { value in 
-            return channel.eventLoop.makeSucceededFuture(value)
+        }.flatMap { value in
+            channel.eventLoop.makeSucceededFuture(value)
         }
     }
 
@@ -713,15 +715,14 @@ enum KituraWebSocketUpgradeError: Error {
 
 /// Errors thrown by HTTPServer
 public struct HTTPServerError: Error, Equatable {
-
     internal enum HTTPServerErrorType: Error {
         case eventLoopGroupAlreadyInitialized
     }
 
     private var _httpServerError: HTTPServerErrorType
 
-    private init(value: HTTPServerErrorType){
-        self._httpServerError = value
+    private init(value: HTTPServerErrorType) {
+        _httpServerError = value
     }
 
     public static var eventLoopGroupAlreadyInitialized = HTTPServerError(value: .eventLoopGroupAlreadyInitialized)
