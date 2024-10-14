@@ -207,18 +207,15 @@ public class HTTPServer: Server {
     private func shouldUpgradeToWebSocket(channel: Channel, webSocketHandlerFactory: ProtocolHandlerFactory, head: HTTPRequestHead) -> EventLoopFuture<HTTPHeaders?> {
         latestWebSocketURI = String(head.uri.split(separator: "?")[0])
         guard webSocketHandlerFactory.isServiceRegistered(at: latestWebSocketURI) else { return channel.eventLoop.makeSucceededFuture(nil) }
-        
+
         var headers = HTTPHeaders()
-        
+
         if let wsProtocol = head.headers["Sec-WebSocket-Protocol"].first {
             headers.add(name: "Sec-WebSocket-Protocol", value: wsProtocol)
         }
 
         if let key = head.headers["Sec-WebSocket-Key"].first {
-            //headers.add(name: "Sec-WebSocket-Key", value: key)
-
-            headers.add(name: "Sec-WebSocket-Accept", value: key)
-
+            headers.add(name: "Sec-WebSocket-Key", value: key)
         }
 
         if let _extension = head.headers["Sec-WebSocket-Extensions"].first {

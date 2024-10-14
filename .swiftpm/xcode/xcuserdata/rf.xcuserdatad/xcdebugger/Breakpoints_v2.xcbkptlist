@@ -8,7 +8,7 @@
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
             uuid = "877C6636-81D6-4DDF-B9D4-FDDB80C8D2D8"
-            shouldBeEnabled = "Yes"
+            shouldBeEnabled = "No"
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "Sources/KituraNet/HTTP/HTTPServer.swift"
@@ -49,6 +49,22 @@
             startingLineNumber = "100"
             endingLineNumber = "100"
             landmarkName = "sendUpgradeRequest(toPath:usingKey:wsVersion:semaphore:errorMessage:)"
+            landmarkType = "7">
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "F1032519-9AED-4A86-99D4-E472550C68EC"
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "Sources/KituraNet/HTTP/HTTPServer.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "218"
+            endingLineNumber = "218"
+            landmarkName = "shouldUpgradeToWebSocket(channel:webSocketHandlerFactory:head:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
