@@ -1,4 +1,4 @@
-// swift-tools-version:5.2
+// swift-tools-version:5.5
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 /*
  * Copyright IBM Corporation and the Kitura project authors 2016-2020
@@ -27,9 +27,9 @@ let package = Package(
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
-        .package(url: "https://github.com/apple/swift-nio.git", from: "2.33.0"),
-        .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.0.0"),
-        .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.0.0"),
+        .package(url: "https://github.com/apple/swift-nio.git", branch: "main"),
+        .package(url: "https://github.com/apple/swift-nio-ssl.git", branch: "main"),
+        .package(url: "https://github.com/apple/swift-nio-extras.git", branch: "main"),
         .package(name: "SSLService", url: "https://github.com/Kitura/BlueSSLService.git", from: "2.0.2"),
         .package(url: "https://github.com/Kitura/LoggerAPI.git", from: "2.0.0")
     ],
